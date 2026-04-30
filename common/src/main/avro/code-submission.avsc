@@ -1,0 +1,35 @@
+{
+  "type": "record",
+  "name": "CodeSubmission",
+  "namespace": "com.pipeline.schema",
+  "fields": [
+    {
+      "name": "jobId",
+      "type": "string"
+    },
+    {
+      "name": "language",
+      "type": {
+        "type": "enum",
+        "name": "Language",
+        "symbols": ["JAVA", "PYTHON", "CPP"]
+      }
+    },
+    {
+      "name": "code",
+      "type": "string"
+    },
+    {
+      "name": "input",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    }
+  ]
+}
