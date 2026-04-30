@@ -5,25 +5,50 @@
 
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.pipeline</groupId>
   <artifactId>api-service</artifactId>
-  <version>1.0.0</version>
 
   <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.0.5</version>
+    <groupId>com.pipeline</groupId>
+    <artifactId>code-stream</artifactId>
+    <version>1.0.0</version>
   </parent>
 
   <dependencies>
 
     <!-- REST API -->
     <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Kafka -->
+    <dependency>
+    <groupId>org.springframework.kafka</groupId>
+    <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Avro Serializer -->
+    <dependency>
+    <groupId>io.confluent</groupId>
+    <artifactId>kafka-avro-serializer</artifactId>
+    <version>7.5.0</version>
+    </dependency>
+
+    <!-- Your shared schemas -->
+    <dependency>
+    <groupId>com.pipeline</groupId>
+    <artifactId>common</artifactId>
+    <version>1.0.0</version>
     </dependency>
 
   </dependencies>
+
+  <repositories>
+    <repository>
+      <id>confluent</id>
+      <url>https://packages.confluent.io/maven/</url>
+    </repository>
+  </repositories>
 
   <build>
     <plugins>
