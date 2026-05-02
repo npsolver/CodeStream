@@ -1,4 +1,4 @@
-package com.pipeline.api;
+package com.pipeline.api.controller;
 
 import org.springframework.web.bind.annotation.*;
 
