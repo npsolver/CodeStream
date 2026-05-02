@@ -1,0 +1,19 @@
+server:
+  port: 8083
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9094
+
+    properties:
+      "[schema.registry.url]": http://localhost:8081
+
+    consumer:
+      group-id: worker-group
+      auto-offset-reset: earliest
+
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+
+      properties:
+        specific.avro.reader: true
