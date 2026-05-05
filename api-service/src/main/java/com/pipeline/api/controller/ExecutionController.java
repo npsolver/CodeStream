@@ -3,24 +3,28 @@ package com.pipeline.api.controller;
 import org.springframework.web.bind.annotation.*;
 
 import com.pipeline.api.producer.SubmissionProducer;
+import com.pipeline.api.store.ResultStore;
 import com.pipeline.schema.CodeSubmission;
+import com.pipeline.schema.ExecutionResult;
 import com.pipeline.schema.Language;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/execute")
 public class ExecutionController {
 
     private final SubmissionProducer producer;
+    private final ResultStore resultStore;
 
-    public ExecutionController(SubmissionProducer producer) {
+    public ExecutionController(SubmissionProducer producer, ResultStore resultStore) {
         this.producer = producer;
+        this.resultStore = resultStore;
     }
 
-    @PostMapping
+    @PostMapping("/execute")
     public String execute(@RequestBody Map<String, String> request) {
 
         CodeSubmission submission = CodeSubmission.newBuilder()
@@ -34,4 +38,23 @@ public class ExecutionController {
 
         return submission.getJobId().toString();
     }
+
+    @GetMapping("/result/{jobId}")
+    public Object getResult(@PathVariable("jobId") String jobId) {
+
+        ExecutionResult result = resultStore.get(jobId);
+
+        if (result == null) {
+            return Map.of("status", "PROCESSING");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("jobId", result.getJobId().toString());
+        response.put("status", result.getStatus().toString());
+        response.put("output", result.getOutput().toString());
+        response.put("error", result.getError());
+
+        return response;
+    }
+
 }
