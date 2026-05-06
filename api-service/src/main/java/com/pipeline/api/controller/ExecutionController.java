@@ -51,8 +51,8 @@ public class ExecutionController {
         Map<String, Object> response = new HashMap<>();
         response.put("jobId", result.getJobId().toString());
         response.put("status", result.getStatus().toString());
-        response.put("output", result.getOutput().toString());
-        response.put("error", result.getError());
+        response.put("output", result.getOutput() != null ? result.getOutput().toString() : null);
+        response.put("error", result.getError() != null ? result.getError().toString() : null);
 
         return response;
     }

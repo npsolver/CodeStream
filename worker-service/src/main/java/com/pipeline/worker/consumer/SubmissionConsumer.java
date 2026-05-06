@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import com.pipeline.schema.*;
 import com.pipeline.worker.service.CodeExecutionService;
+import com.pipeline.worker.service.ExecutionResponse;
 import com.pipeline.worker.producer.ResultProducer;
 
 import java.time.Instant;
@@ -14,6 +15,14 @@ public class SubmissionConsumer {
 
     private final CodeExecutionService executor;
     private final ResultProducer producer;
+
+    private ExecutionStatus mapStatus(ExecutionResponse.Status status) {
+        return switch (status) {
+            case SUCCESS -> ExecutionStatus.SUCCESS;
+            case ERROR -> ExecutionStatus.ERROR;
+            case TIMEOUT -> ExecutionStatus.TIMEOUT;
+        };
+    }
 
     public SubmissionConsumer(CodeExecutionService executor, ResultProducer producer) {
         this.executor = executor;
@@ -26,13 +35,13 @@ public class SubmissionConsumer {
         String jobId = submission.getJobId().toString();
 
         try {
-            String output = executor.executePython(submission.getCode().toString());
+            ExecutionResponse response = executor.executePython(submission.getCode().toString());
 
             ExecutionResult result = ExecutionResult.newBuilder()
                     .setJobId(jobId)
-                    .setOutput(output)
-                    .setError(null)
-                    .setStatus(ExecutionStatus.SUCCESS)
+                    .setOutput(response.output)
+                    .setError(response.error)
+                    .setStatus(mapStatus(response.status))
                     .setTimestamp(Instant.now())
                     .build();
 
