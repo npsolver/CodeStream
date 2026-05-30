@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply min-h-screen bg-surface font-sans text-slate-200 antialiased;
+  }
+}
+
+.cm-editor {
+  height: 100% !important;
+}
+
+.cm-editor.cm-focused {
+  outline: none !important;
+}
+
+.cm-scroller {
+  font-family: var(--font-mono), ui-monospace, monospace !important;
+  line-height: 1.6 !important;
+}
