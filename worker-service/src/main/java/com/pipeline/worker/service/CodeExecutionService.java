@@ -1,43 +1,46 @@
 package com.pipeline.worker.service;
 
+import com.pipeline.worker.config.ExecutionDockerProperties;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.*;
 
 @Service
 public class CodeExecutionService {
 
-    private static final int TIMEOUT_SECONDS = 3;
-    private static final int MAX_OUTPUT_SIZE = 10_000; // 10 KB
+    private final ExecutionDockerProperties docker;
+
+    public CodeExecutionService(ExecutionDockerProperties docker) {
+        this.docker = docker;
+    }
 
     public ExecutionResponse executePython(String code) {
-
-        File tempFile = null;
+        Path workDir = null;
 
         try {
-            // 1. Create temp file
-            tempFile = File.createTempFile("code-", ".py");
+            workDir = Files.createTempDirectory("code-exec-");
+            Path codeFile = workDir.resolve("code.py");
+            Files.writeString(codeFile, code, StandardCharsets.UTF_8);
 
-            try (FileWriter writer = new FileWriter(tempFile)) {
-                writer.write(code);
-            }
-
-            // 2. Start process
-            Process process = new ProcessBuilder("python3", tempFile.getAbsolutePath())
+            Process process = new ProcessBuilder(buildDockerCommand(workDir))
+                    .redirectErrorStream(false)
                     .start();
 
-            // 3. Read stdout & stderr in parallel
             ExecutorService executor = Executors.newFixedThreadPool(2);
 
-            Future<String> stdoutFuture = executor
-                    .submit(() -> readStreamWithLimit(process.getInputStream(), MAX_OUTPUT_SIZE));
+            Future<String> stdoutFuture = executor.submit(
+                    () -> readStreamWithLimit(process.getInputStream(), docker.getMaxOutputBytes()));
 
-            Future<String> stderrFuture = executor
-                    .submit(() -> readStreamWithLimit(process.getErrorStream(), MAX_OUTPUT_SIZE));
+            Future<String> stderrFuture = executor.submit(
+                    () -> readStreamWithLimit(process.getErrorStream(), docker.getMaxOutputBytes()));
 
-            boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            boolean finished = process.waitFor(docker.getTimeoutSeconds(), TimeUnit.SECONDS);
 
             if (!finished) {
                 process.destroyForcibly();
@@ -45,13 +48,12 @@ public class CodeExecutionService {
                 return ExecutionResponse.timeout();
             }
 
-            String stdout = stdoutFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            String stderr = stderrFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            String stdout = stdoutFuture.get(docker.getTimeoutSeconds(), TimeUnit.SECONDS);
+            String stderr = stderrFuture.get(docker.getTimeoutSeconds(), TimeUnit.SECONDS);
 
             executor.shutdown();
 
             int exitCode = process.exitValue();
-
             return ExecutionResponse.from(stdout, stderr, exitCode);
 
         } catch (TimeoutException e) {
@@ -61,14 +63,49 @@ public class CodeExecutionService {
             return ExecutionResponse.error(e.getMessage());
 
         } finally {
-            // 4. Cleanup
-            if (tempFile != null && tempFile.exists()) {
-                tempFile.delete();
+            if (workDir != null) {
+                deleteRecursively(workDir);
             }
         }
     }
 
-    // 🔒 Safe stream reader with output limit
+    private List<String> buildDockerCommand(Path workDir) {
+        List<String> command = new ArrayList<>();
+        command.add(docker.getBinary());
+        command.add("run");
+        command.add("--rm");
+        command.add("--network");
+        command.add("none");
+        command.add("--memory");
+        command.add(docker.getMemoryMb() + "m");
+        command.add("--cpus");
+        command.add(String.valueOf(docker.getCpus()));
+        command.add("--pids-limit");
+        command.add(String.valueOf(docker.getPidsLimit()));
+        command.add("--read-only");
+        command.add("--tmpfs");
+        command.add("/tmp:rw,noexec,nosuid,size=64m");
+        command.add("-v");
+        command.add(workDir.toAbsolutePath() + ":/workspace:ro");
+        command.add(docker.getImage());
+        command.add("python3");
+        command.add("/workspace/code.py");
+        return command;
+    }
+
+    private void deleteRecursively(Path path) {
+        try {
+            if (Files.isDirectory(path)) {
+                try (var entries = Files.list(path)) {
+                    entries.forEach(this::deleteRecursively);
+                }
+            }
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+            // best-effort cleanup
+        }
+    }
+
     private String readStreamWithLimit(InputStream stream, int maxBytes) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
         StringBuilder result = new StringBuilder();

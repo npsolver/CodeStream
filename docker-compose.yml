@@ -1,5 +1,10 @@
 services:
 
+  python-runner:
+    build:
+      context: ./worker-service/docker/python-runner
+    image: codestream-python-runner:latest
+
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka

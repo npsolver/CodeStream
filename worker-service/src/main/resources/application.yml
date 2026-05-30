@@ -1,3 +1,12 @@
+execution:
+  docker:
+    image: codestream-python-runner:latest
+    timeout-seconds: 3
+    max-output-bytes: 10000
+    memory-mb: 128
+    cpus: 0.5
+    pids-limit: 64
+
 spring:
   kafka:
     bootstrap-servers: localhost:9094
