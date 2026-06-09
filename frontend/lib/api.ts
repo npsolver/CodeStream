@@ -1,5 +1,25 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
+function parseApiError(body: string, status: number): string {
+  if (!body) {
+    return `AI suggestion failed (${status})`;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as { message?: string; error?: string };
+    if (parsed.message) {
+      return parsed.message;
+    }
+    if (parsed.error) {
+      return parsed.error;
+    }
+  } catch {
+    // not JSON
+  }
+
+  return body;
+}
+
 export type ExecutionStatus = "PROCESSING" | "SUCCESS" | "ERROR" | "TIMEOUT";
 
 export interface ExecutionResult {
@@ -57,4 +77,28 @@ export async function waitForResult(
   }
 
   throw new Error("Timed out waiting for execution result");
+}
+
+export interface SuggestFixResponse {
+  summary: string;
+  explanation: string;
+  correctedCode: string;
+}
+
+export async function suggestFix(
+  code: string,
+  error: string,
+): Promise<SuggestFixResponse> {
+  const response = await fetch(`${API_BASE}/ai/suggest-fix`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, error }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(parseApiError(text, response.status));
+  }
+
+  return response.json();
 }

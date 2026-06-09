@@ -20,3 +20,18 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). Override the API target with `API_SERVICE_URL` (server rewrites) or `NEXT_PUBLIC_API_BASE_URL` (direct browser calls, e.g. `http://localhost:8082`).
+
+## AI error suggestions (Google AI Studio / Gemini)
+
+When Python execution fails, the UI asks Gemini for a fix and shows a summary, explanation, and suggested code.
+
+1. Open [Google AI Studio](https://aistudio.google.com/) and sign in.
+2. Go to **Get API key** → **Create API key** (use an existing Google Cloud project or create one).
+3. Start api-service with the key:
+
+```bash
+export GEMINI_API_KEY="your-api-key-here"
+mvn -pl api-service spring-boot:run
+```
+
+Optional: `GEMINI_MODEL=gemini-2.5-flash` (default). Older models like `gemini-2.0-flash` were shut down in June 2026. The key stays on the server only — never put it in the frontend.

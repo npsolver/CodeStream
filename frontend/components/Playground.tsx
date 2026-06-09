@@ -2,7 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
-import { submitCode, waitForResult, type ExecutionResult } from "@/lib/api";
+import {
+  submitCode,
+  suggestFix,
+  waitForResult,
+  type ExecutionResult,
+  type SuggestFixResponse,
+} from "@/lib/api";
+import { AiSuggestionPanel } from "@/components/AiSuggestionPanel";
 import { OutputPanel } from "@/components/OutputPanel";
 
 const CodeEditor = dynamic(
@@ -26,12 +33,18 @@ for i in range(3):
 `;
 
 type PanelState = "idle" | "waiting" | "done" | "failed";
+type AiState = "idle" | "loading" | "ready" | "failed";
 
 export function Playground() {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [panelState, setPanelState] = useState<PanelState>("idle");
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [aiState, setAiState] = useState<AiState>("idle");
+  const [aiSuggestion, setAiSuggestion] = useState<SuggestFixResponse | null>(
+    null,
+  );
+  const [aiErrorMessage, setAiErrorMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const isRunning = panelState === "waiting";
@@ -44,6 +57,9 @@ export function Playground() {
     setPanelState("waiting");
     setResult(null);
     setErrorMessage(null);
+    setAiState("idle");
+    setAiSuggestion(null);
+    setAiErrorMessage(null);
 
     try {
       const jobId = await submitCode(code);
@@ -52,6 +68,26 @@ export function Playground() {
       const execution = await waitForResult(jobId, controller.signal);
       setResult(execution);
       setPanelState("done");
+
+      const errorText = execution.error?.trim();
+      if (
+        errorText &&
+        (execution.status === "ERROR" || execution.status === "TIMEOUT")
+      ) {
+        setAiState("loading");
+        try {
+          const suggestion = await suggestFix(code, errorText);
+          setAiSuggestion(suggestion);
+          setAiState("ready");
+        } catch (aiErr) {
+          setAiErrorMessage(
+            aiErr instanceof Error
+              ? aiErr.message
+              : "Failed to fetch AI suggestion",
+          );
+          setAiState("failed");
+        }
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
@@ -115,13 +151,27 @@ export function Playground() {
           </div>
         </section>
 
-        <section className="flex min-h-[240px] w-full flex-col overflow-hidden rounded-xl border border-slate-700/60 bg-surface-overlay shadow-xl lg:min-h-0 lg:w-[min(440px,40%)]">
-          <OutputPanel
-            state={panelState}
-            result={result}
-            errorMessage={errorMessage}
+        <div className="flex w-full min-w-0 flex-col gap-4 lg:w-[min(480px,42%)]">
+          <section className="flex min-h-[240px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-700/60 bg-surface-overlay shadow-xl lg:min-h-[280px]">
+            <OutputPanel
+              state={panelState}
+              result={result}
+              errorMessage={errorMessage}
+            />
+          </section>
+
+          <AiSuggestionPanel
+            state={aiState}
+            suggestion={aiSuggestion}
+            errorMessage={aiErrorMessage}
+            onApplyFix={setCode}
+            onDismiss={() => {
+              setAiState("idle");
+              setAiSuggestion(null);
+              setAiErrorMessage(null);
+            }}
           />
-        </section>
+        </div>
       </main>
     </div>
   );

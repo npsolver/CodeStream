@@ -1,6 +1,10 @@
 server:
   port: 8082
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-2.5-flash}
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/codestream
