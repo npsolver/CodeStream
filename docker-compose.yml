@@ -1,5 +1,22 @@
 services:
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: codestream
+      POSTGRES_USER: codestream
+      POSTGRES_PASSWORD: codestream
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codestream -d codestream"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   python-runner:
     build:
       context: ./worker-service/docker/python-runner
@@ -71,3 +88,6 @@ services:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+
+volumes:
+  postgres_data:

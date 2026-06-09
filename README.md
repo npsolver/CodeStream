@@ -6,8 +6,11 @@ A real-time code execution pipeline built with Apache Kafka and Java.
 Next.js app in `frontend/`. It posts Python code to the api-service, polls for results, and shows stdout or errors.
 
 ```bash
-# Terminal 1 — infrastructure + services (Kafka, api-service on :8082, worker-service)
+# Terminal 1 — infrastructure (Kafka, PostgreSQL, schema registry)
 docker compose up -d
+# PostgreSQL: localhost:5432, db/user/password codestream
+# Flyway migrations run automatically when api-service starts
+
 # start api-service and worker-service per your usual workflow
 
 # Terminal 2 — UI (rewrites /api → http://localhost:8082)
