@@ -35,3 +35,8 @@ mvn -pl api-service spring-boot:run
 ```
 
 Optional: `GEMINI_MODEL=gemini-2.5-flash` (default). Older models like `gemini-2.0-flash` were shut down in June 2026. The key stays on the server only — never put it in the frontend.
+
+## Editor persistence & result retention
+
+- **Editor code** is saved in the browser (`localStorage`) and restored after refresh.
+- **Execution results** in PostgreSQL are deleted automatically after **1 day** (configurable via `RESULT_RETENTION_DAYS` or `codestream.results.retention-days`). Cleanup runs hourly by default (`RESULT_CLEANUP_CRON` / `codestream.results.cleanup-cron`).

@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { loadSavedCode, saveCode } from "@/lib/codeStorage";
 import {
   submitCode,
   suggestFix,
@@ -37,6 +38,7 @@ type AiState = "idle" | "loading" | "ready" | "failed";
 
 export function Playground() {
   const [code, setCode] = useState(DEFAULT_CODE);
+  const [isStorageLoaded, setIsStorageLoaded] = useState(false);
   const [panelState, setPanelState] = useState<PanelState>("idle");
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -48,6 +50,23 @@ export function Playground() {
   const abortRef = useRef<AbortController | null>(null);
 
   const isRunning = panelState === "waiting";
+
+  useEffect(() => {
+    const saved = loadSavedCode();
+    if (saved !== null) {
+      setCode(saved);
+    }
+    setIsStorageLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isStorageLoaded) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => saveCode(code), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [code, isStorageLoaded]);
 
   const handleRun = useCallback(async () => {
     abortRef.current?.abort();

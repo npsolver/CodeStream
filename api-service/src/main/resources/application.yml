@@ -1,6 +1,11 @@
 server:
   port: 8082
 
+codestream:
+  results:
+    retention-days: ${RESULT_RETENTION_DAYS:1}
+    cleanup-cron: ${RESULT_CLEANUP_CRON:0 0 * * * *}
+
 gemini:
   api-key: ${GEMINI_API_KEY:}
   model: ${GEMINI_MODEL:gemini-2.5-flash}
