@@ -19,28 +19,27 @@ public class ResultStore {
     @Transactional
     public void save(ExecutionResult result) {
         ExecutionResultEntity entity = new ExecutionResultEntity(
-                result.getJobId().toString(),
-                result.getOutput() != null ? result.getOutput().toString() : null,
-                result.getError() != null ? result.getError().toString() : null,
-                result.getStatus().name(),
-                result.getTimestamp());
+                result.jobId(),
+                result.output(),
+                result.error(),
+                result.status().name(),
+                result.timestamp());
         repository.save(entity);
     }
 
     @Transactional(readOnly = true)
     public ExecutionResult get(String jobId) {
         return repository.findById(jobId)
-                .map(this::toAvro)
+                .map(this::toModel)
                 .orElse(null);
     }
 
-    private ExecutionResult toAvro(ExecutionResultEntity entity) {
-        return ExecutionResult.newBuilder()
-                .setJobId(entity.getJobId())
-                .setOutput(entity.getOutput())
-                .setError(entity.getError())
-                .setStatus(ExecutionStatus.valueOf(entity.getStatus()))
-                .setTimestamp(entity.getExecutedAt())
-                .build();
+    private ExecutionResult toModel(ExecutionResultEntity entity) {
+        return new ExecutionResult(
+                entity.getJobId(),
+                entity.getOutput(),
+                entity.getError(),
+                ExecutionStatus.valueOf(entity.getStatus()),
+                entity.getExecutedAt());
     }
 }

@@ -1,12 +1,16 @@
 package com.pipeline.worker.consumer;
 
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Service;
-
-import com.pipeline.schema.*;
+import com.pipeline.messaging.ReceivedMessage;
+import com.pipeline.messaging.SqsJsonMessenger;
+import com.pipeline.schema.CodeSubmission;
+import com.pipeline.schema.ExecutionResult;
+import com.pipeline.schema.ExecutionStatus;
+import com.pipeline.worker.config.SqsProperties;
+import com.pipeline.worker.producer.ResultProducer;
 import com.pipeline.worker.service.CodeExecutionService;
 import com.pipeline.worker.service.ExecutionResponse;
-import com.pipeline.worker.producer.ResultProducer;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
@@ -15,6 +19,8 @@ public class SubmissionConsumer {
 
     private final CodeExecutionService executor;
     private final ResultProducer producer;
+    private final SqsJsonMessenger messenger;
+    private final SqsProperties sqsProperties;
 
     private ExecutionStatus mapStatus(ExecutionResponse.Status status) {
         return switch (status) {
@@ -24,38 +30,51 @@ public class SubmissionConsumer {
         };
     }
 
-    public SubmissionConsumer(CodeExecutionService executor, ResultProducer producer) {
+    public SubmissionConsumer(
+            CodeExecutionService executor,
+            ResultProducer producer,
+            SqsJsonMessenger messenger,
+            SqsProperties sqsProperties) {
         this.executor = executor;
         this.producer = producer;
+        this.messenger = messenger;
+        this.sqsProperties = sqsProperties;
     }
 
-    @KafkaListener(topics = "code-submissions", groupId = "worker-group")
-    public void consume(CodeSubmission submission) {
+    @Scheduled(fixedDelayString = "${codestream.sqs.poll-interval-ms:1000}")
+    public void pollSubmissions() {
+        for (ReceivedMessage<CodeSubmission> message : messenger.receive(
+                sqsProperties.getSubmissionQueueUrl(),
+                CodeSubmission.class,
+                sqsProperties.getMaxMessages(),
+                sqsProperties.getVisibilityTimeoutSeconds())) {
+            process(message.payload());
+            messenger.delete(sqsProperties.getSubmissionQueueUrl(), message.receiptHandle());
+        }
+    }
 
-        String jobId = submission.getJobId().toString();
+    private void process(CodeSubmission submission) {
+        String jobId = submission.jobId();
 
         try {
-            ExecutionResponse response = executor.executePython(submission.getCode().toString());
+            ExecutionResponse response = executor.executePython(submission.code());
 
-            ExecutionResult result = ExecutionResult.newBuilder()
-                    .setJobId(jobId)
-                    .setOutput(response.output)
-                    .setError(response.error)
-                    .setStatus(mapStatus(response.status))
-                    .setTimestamp(Instant.now())
-                    .build();
+            ExecutionResult result = new ExecutionResult(
+                    jobId,
+                    response.output,
+                    response.error,
+                    mapStatus(response.status),
+                    Instant.now());
 
             producer.send(result);
 
         } catch (Exception e) {
-
-            ExecutionResult result = ExecutionResult.newBuilder()
-                    .setJobId(jobId)
-                    .setOutput(null)
-                    .setError(e.getMessage())
-                    .setStatus(ExecutionStatus.ERROR)
-                    .setTimestamp(Instant.now())
-                    .build();
+            ExecutionResult result = new ExecutionResult(
+                    jobId,
+                    null,
+                    e.getMessage(),
+                    ExecutionStatus.ERROR,
+                    Instant.now());
 
             producer.send(result);
         }

@@ -27,16 +27,16 @@ public class ExecutionController {
     @PostMapping("/execute")
     public String execute(@RequestBody Map<String, String> request) {
 
-        CodeSubmission submission = CodeSubmission.newBuilder()
-                .setJobId(UUID.randomUUID().toString())
-                .setLanguage(Language.PYTHON)
-                .setCode(request.get("code"))
-                .setTimestamp(Instant.now())
-                .build();
+        CodeSubmission submission = new CodeSubmission(
+                UUID.randomUUID().toString(),
+                Language.PYTHON,
+                request.get("code"),
+                null,
+                Instant.now());
 
         producer.send(submission);
 
-        return submission.getJobId().toString();
+        return submission.jobId();
     }
 
     @GetMapping("/result/{jobId}")
@@ -49,10 +49,10 @@ public class ExecutionController {
         }
 
         Map<String, Object> response = new HashMap<>();
-        response.put("jobId", result.getJobId().toString());
-        response.put("status", result.getStatus().toString());
-        response.put("output", result.getOutput() != null ? result.getOutput().toString() : null);
-        response.put("error", result.getError() != null ? result.getError().toString() : null);
+        response.put("jobId", result.jobId());
+        response.put("status", result.status().toString());
+        response.put("output", result.output());
+        response.put("error", result.error());
 
         return response;
     }

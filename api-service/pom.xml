@@ -21,24 +21,17 @@
     <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <!-- Kafka -->
-    <dependency>
-    <groupId>org.springframework.kafka</groupId>
-    <artifactId>spring-kafka</artifactId>
-    </dependency>
-
-    <!-- Avro Serializer -->
-    <dependency>
-    <groupId>io.confluent</groupId>
-    <artifactId>kafka-avro-serializer</artifactId>
-    <version>7.5.0</version>
-    </dependency>
-
-    <!-- Your shared schemas -->
+    <!-- Shared models + SQS helper -->
     <dependency>
     <groupId>com.pipeline</groupId>
     <artifactId>common</artifactId>
     <version>1.0.0</version>
+    </dependency>
+
+    <!-- AWS SQS (also declared here so spring-boot:run resolves the SDK reliably) -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sqs</artifactId>
     </dependency>
 
     <!-- PostgreSQL -->
@@ -58,18 +51,15 @@
 
   </dependencies>
 
-  <repositories>
-    <repository>
-      <id>confluent</id>
-      <url>https://packages.confluent.io/maven/</url>
-    </repository>
-  </repositories>
-
   <build>
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <skip>false</skip>
+          <mainClass>com.pipeline.api.ApiApplication</mainClass>
+        </configuration>
       </plugin>
     </plugins>
   </build>

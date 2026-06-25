@@ -1,19 +1,22 @@
 package com.pipeline.worker.producer;
 
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
+import com.pipeline.messaging.SqsJsonMessenger;
 import com.pipeline.schema.ExecutionResult;
+import com.pipeline.worker.config.SqsProperties;
+import org.springframework.stereotype.Service;
 
 @Service
 public class ResultProducer {
 
-    private final KafkaTemplate<String, ExecutionResult> kafkaTemplate;
+    private final SqsJsonMessenger messenger;
+    private final SqsProperties sqsProperties;
 
-    public ResultProducer(KafkaTemplate<String, ExecutionResult> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
+    public ResultProducer(SqsJsonMessenger messenger, SqsProperties sqsProperties) {
+        this.messenger = messenger;
+        this.sqsProperties = sqsProperties;
     }
 
     public void send(ExecutionResult result) {
-        kafkaTemplate.send("execution-results", result.getJobId().toString(), result);
+        messenger.send(sqsProperties.getResultQueueUrl(), result);
     }
 }

@@ -17,24 +17,17 @@
       <artifactId>spring-boot-starter</artifactId>
     </dependency>
 
-    <!-- Kafka -->
-    <dependency>
-      <groupId>org.springframework.kafka</groupId>
-      <artifactId>spring-kafka</artifactId>
-    </dependency>
-
-    <!-- Avro -->
-    <dependency>
-      <groupId>io.confluent</groupId>
-      <artifactId>kafka-avro-serializer</artifactId>
-      <version>7.5.0</version>
-    </dependency>
-
-    <!-- Shared schema -->
+    <!-- Shared models + SQS helper -->
     <dependency>
       <groupId>com.pipeline</groupId>
       <artifactId>common</artifactId>
       <version>1.0.0</version>
+    </dependency>
+
+    <!-- AWS SQS -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>sqs</artifactId>
     </dependency>
 
   </dependencies>
@@ -44,16 +37,12 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <skip>false</skip>
+          <mainClass>com.pipeline.worker.WorkerApplication</mainClass>
+        </configuration>
       </plugin>
     </plugins>
   </build>
-
-  <!-- Needed for Confluent -->
-  <repositories>
-    <repository>
-      <id>confluent</id>
-      <url>https://packages.confluent.io/maven/</url>
-    </repository>
-  </repositories>
 
 </project>
