@@ -24,10 +24,14 @@ GET /result/{id} ← api-service ← PostgreSQL
 
 ### 1. Start infrastructure
 
+**Local PostgreSQL (default):**
+
 ```bash
-docker compose up -d
+docker compose up -d postgres python-runner
 ./scripts/setup-sqs-local.sh
 ```
+
+**Managed PostgreSQL (e.g. Neon):** skip the `postgres` container and set `DATABASE_URL` before starting api-service (see [Database](#database) below).
 
 Copy the `export` lines printed by the script into your shell.
 
@@ -132,7 +136,50 @@ Optional tuning:
 
 ### Step 4 — Deploy services
 
-Same as local: Postgres via `docker compose up -d postgres python-runner`, then run api-service, worker-service, and frontend. Point `codestream.npsolver.io` at the frontend with a reverse proxy (see deployment notes in prior docs).
+Run api-service, worker-service, and frontend. Use a managed Postgres URL via `DATABASE_URL`, or start local Postgres with `docker compose up -d postgres python-runner`.
+
+---
+
+## Database
+
+api-service connects to PostgreSQL using either a **`DATABASE_URL`** (managed/hosted DB) or **local Docker defaults**.
+
+### Managed PostgreSQL (Neon, RDS, etc.)
+
+Set a standard Postgres connection URL. When `DATABASE_URL` is set, it overrides the local Docker settings:
+
+```bash
+export DATABASE_URL="postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require"
+mvn -pl api-service spring-boot:run
+```
+
+Example (Neon pooler):
+
+```bash
+export DATABASE_URL="postgresql://neondb_owner:YOUR_PASSWORD@ep-example-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"
+```
+
+Flyway runs migrations on startup. For managed databases (Neon), the app automatically baselines when needed and skips `V1` if `execution_results` already exists.
+
+### Local Docker PostgreSQL (default)
+
+When `DATABASE_URL` is **not** set, api-service uses:
+
+| Variable | Default |
+|----------|---------|
+| `POSTGRES_HOST` | `localhost` |
+| `POSTGRES_PORT` | `5432` |
+| `POSTGRES_DB` | `codestream` |
+| `POSTGRES_USER` | `codestream` |
+| `POSTGRES_PASSWORD` | `codestream` |
+
+Start the container:
+
+```bash
+docker compose up -d postgres
+```
+
+Optional JDBC query string for local overrides: `POSTGRES_JDBC_PARAMS` (e.g. `?sslmode=disable`).
 
 ---
 
@@ -146,6 +193,9 @@ Same as local: Postgres via `docker compose up -d postgres python-runner`, then 
 | `AWS_ENDPOINT_URL` | api, worker | LocalStack only (`http://localhost:4566`) |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | api, worker | AWS credentials |
 | `GEMINI_API_KEY` | api | AI fix suggestions |
+| `DATABASE_URL` | api | Managed Postgres URL (overrides local Docker DB) |
+| `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_DB` | api | Local Docker Postgres (when `DATABASE_URL` unset) |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` | api | Local Docker Postgres credentials |
 | `RESULT_RETENTION_DAYS` | api | Postgres result retention |
 
 ---

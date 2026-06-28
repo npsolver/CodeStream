@@ -1,4 +1,4 @@
-CREATE TABLE execution_results (
+CREATE TABLE IF NOT EXISTS execution_results (
     job_id      VARCHAR(36)  PRIMARY KEY,
     output      TEXT,
     error       TEXT,
@@ -6,4 +6,4 @@ CREATE TABLE execution_results (
     executed_at TIMESTAMPTZ  NOT NULL
 );
 
-CREATE INDEX idx_execution_results_executed_at ON execution_results (executed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_execution_results_executed_at ON execution_results (executed_at DESC);

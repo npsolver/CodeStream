@@ -20,9 +20,9 @@ gemini:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/codestream
-    username: codestream
-    password: codestream
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:codestream}${POSTGRES_JDBC_PARAMS:}
+    username: ${POSTGRES_USER:codestream}
+    password: ${POSTGRES_PASSWORD:codestream}
     driver-class-name: org.postgresql.Driver
 
   jpa:
