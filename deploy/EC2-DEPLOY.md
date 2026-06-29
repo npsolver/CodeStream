@@ -132,6 +132,8 @@ Logs: `journalctl -u codestream-api -f` / `journalctl -u codestream-worker -f`
 
 ### Configure nginx
 
+Install the **HTTP-only** config first (SSL cert paths are added by certbot):
+
 ```bash
 sudo sed 's/YOUR_DOMAIN/api.codestream.npsolver.io/g' \
   /opt/codestream-src/deploy/nginx/codestream.conf \
@@ -141,6 +143,9 @@ sudo nginx -t
 sudo systemctl enable --now nginx
 sudo certbot --nginx -d api.codestream.npsolver.io
 ```
+
+certbot obtains the certificate and updates the nginx config for HTTPS + HTTP redirect.
+Do **not** add `ssl_certificate` paths manually before running certbot — nginx will fail to start if those files do not exist yet.
 
 ### Confirm HTTPS
 
