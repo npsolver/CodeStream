@@ -73,6 +73,16 @@ build_app() {
 
   cp "$REPO_DIR/api-service/target/api-service-"*.jar "$INSTALL_DIR/api-service.jar"
   cp "$REPO_DIR/worker-service/target/worker-service-"*.jar "$INSTALL_DIR/worker-service.jar"
+
+  if ! unzip -p "$INSTALL_DIR/api-service.jar" META-INF/MANIFEST.MF | grep -q "Main-Class:"; then
+    echo "api-service.jar is not a runnable Spring Boot fat JAR. Check Maven spring-boot-maven-plugin repackage." >&2
+    exit 1
+  fi
+  if ! unzip -p "$INSTALL_DIR/worker-service.jar" META-INF/MANIFEST.MF | grep -q "Main-Class:"; then
+    echo "worker-service.jar is not a runnable Spring Boot fat JAR. Check Maven spring-boot-maven-plugin repackage." >&2
+    exit 1
+  fi
+
   chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 }
 
