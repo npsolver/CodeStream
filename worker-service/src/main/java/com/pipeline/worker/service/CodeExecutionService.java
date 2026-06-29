@@ -7,8 +7,11 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.*;
 
 @Service
@@ -27,6 +30,7 @@ public class CodeExecutionService {
             workDir = Files.createTempDirectory("code-exec-");
             Path codeFile = workDir.resolve("code.py");
             Files.writeString(codeFile, code, StandardCharsets.UTF_8);
+            makeReadableByContainerUser(workDir, codeFile);
 
             Process process = new ProcessBuilder(buildDockerCommand(workDir))
                     .redirectErrorStream(false)
@@ -91,6 +95,17 @@ public class CodeExecutionService {
         command.add("python3");
         command.add("/workspace/code.py");
         return command;
+    }
+
+    // Worker may run as a different uid than the container user (uid 1000 on EC2).
+    private static void makeReadableByContainerUser(Path workDir, Path codeFile) throws IOException {
+        if (!Files.getFileStore(workDir).supportsFileAttributeView("posix")) {
+            return;
+        }
+        Set<PosixFilePermission> dirPermissions = PosixFilePermissions.fromString("rwxr-xr-x");
+        Set<PosixFilePermission> filePermissions = PosixFilePermissions.fromString("rw-r--r--");
+        Files.setPosixFilePermissions(workDir, dirPermissions);
+        Files.setPosixFilePermissions(codeFile, filePermissions);
     }
 
     private void deleteRecursively(Path path) {
