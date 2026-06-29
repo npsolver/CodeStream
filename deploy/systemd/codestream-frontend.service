@@ -1,0 +1,22 @@
+[Unit]
+Description=CodeStream Frontend (Next.js)
+After=network-online.target codestream-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=codestream
+Group=codestream
+WorkingDirectory=/opt/codestream/frontend
+EnvironmentFile=/etc/codestream/env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=codestream-frontend
+
+[Install]
+WantedBy=multi-user.target

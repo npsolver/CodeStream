@@ -138,6 +138,8 @@ Optional tuning:
 
 Run api-service, worker-service, and frontend. Use a managed Postgres URL via `DATABASE_URL`, or start local Postgres with `docker compose up -d postgres python-runner`.
 
+For production: frontend on **Vercel**, api + worker on **EC2** behind nginx at `api.codestream.npsolver.io` — see **[deploy/EC2-DEPLOY.md](deploy/EC2-DEPLOY.md)** and **[deploy/env.vercel.example](deploy/env.vercel.example)**.
+
 ---
 
 ## Database
@@ -196,6 +198,8 @@ Optional JDBC query string for local overrides: `POSTGRES_JDBC_PARAMS` (e.g. `?s
 | `DATABASE_URL` | api | Managed Postgres URL (overrides local Docker DB) |
 | `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_DB` | api | Local Docker Postgres (when `DATABASE_URL` unset) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` | api | Local Docker Postgres credentials |
+| `CORS_ALLOWED_ORIGIN_PATTERNS` | api | Comma-separated CORS origins (production domain) |
+| `EXECUTION_DOCKER_*` | worker | Docker sandbox limits and image name |
 | `RESULT_RETENTION_DAYS` | api | Postgres result retention |
 
 ---
@@ -204,7 +208,9 @@ Optional JDBC query string for local overrides: `POSTGRES_JDBC_PARAMS` (e.g. `?s
 
 Next.js app in `frontend/`. It posts Python code to the api-service, polls for results, and shows stdout or errors.
 
-Override the API target with `API_SERVICE_URL` (server rewrites) or `NEXT_PUBLIC_API_BASE_URL` (direct browser calls).
+**Local dev:** uses Next.js rewrites (`/api/*` → `http://localhost:8082`). Override with `API_SERVICE_URL`.
+
+**Production (Vercel):** set `API_SERVICE_URL=https://api.codestream.npsolver.io`. Browser calls `/api/*`; Vercel rewrites proxy to the API. Redeploy after changing. See [deploy/env.vercel.example](deploy/env.vercel.example).
 
 ## AI error suggestions (Google AI Studio / Gemini)
 

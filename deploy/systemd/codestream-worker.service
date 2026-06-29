@@ -1,0 +1,22 @@
+[Unit]
+Description=CodeStream Worker Service
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=codestream
+Group=codestream
+SupplementaryGroups=docker
+WorkingDirectory=/opt/codestream
+EnvironmentFile=/etc/codestream/env
+ExecStart=/usr/bin/java -jar /opt/codestream/worker-service.jar
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=codestream-worker
+
+[Install]
+WantedBy=multi-user.target

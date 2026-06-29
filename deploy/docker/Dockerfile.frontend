@@ -1,0 +1,19 @@
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
+ARG API_SERVICE_URL=http://127.0.0.1:8082
+ENV API_SERVICE_URL=$API_SERVICE_URL
+RUN npm run build
+
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/public ./public
+EXPOSE 3000
+CMD ["npm", "run", "start"]

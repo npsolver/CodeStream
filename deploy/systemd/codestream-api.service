@@ -1,0 +1,20 @@
+[Unit]
+Description=CodeStream API Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=codestream
+Group=codestream
+WorkingDirectory=/opt/codestream
+EnvironmentFile=/etc/codestream/env
+ExecStart=/usr/bin/java -jar /opt/codestream/api-service.jar
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=codestream-api
+
+[Install]
+WantedBy=multi-user.target

@@ -2,6 +2,8 @@ server:
   port: 8082
 
 codestream:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
   results:
     retention-days: ${RESULT_RETENTION_DAYS:1}
     cleanup-cron: ${RESULT_CLEANUP_CRON:0 0 * * * *}

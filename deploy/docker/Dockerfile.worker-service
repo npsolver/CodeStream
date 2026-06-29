@@ -1,0 +1,14 @@
+# Worker container needs access to the host Docker socket to run code sandboxes.
+# Prefer running worker-service as a native systemd service on EC2 instead.
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /src
+COPY pom.xml .
+COPY common common
+COPY worker-service worker-service
+RUN mvn -pl worker-service -am package -DskipTests
+
+FROM eclipse-temurin:17-jre
+RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=build /src/worker-service/target/worker-service-*.jar app.jar
+ENTRYPOINT ["java", "-jar", "app.jar"]

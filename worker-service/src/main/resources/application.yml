@@ -1,11 +1,12 @@
 execution:
   docker:
-    image: codestream-python-runner:latest
-    timeout-seconds: 3
-    max-output-bytes: 10000
-    memory-mb: 128
-    cpus: 0.5
-    pids-limit: 64
+    binary: ${EXECUTION_DOCKER_BINARY:docker}
+    image: ${EXECUTION_DOCKER_IMAGE:codestream-python-runner:latest}
+    timeout-seconds: ${EXECUTION_DOCKER_TIMEOUT_SECONDS:3}
+    max-output-bytes: ${EXECUTION_DOCKER_MAX_OUTPUT_BYTES:10000}
+    memory-mb: ${EXECUTION_DOCKER_MEMORY_MB:128}
+    cpus: ${EXECUTION_DOCKER_CPUS:0.5}
+    pids-limit: ${EXECUTION_DOCKER_PIDS_LIMIT:64}
 
 codestream:
   sqs:
