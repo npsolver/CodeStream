@@ -25,12 +25,21 @@ const CodeEditor = dynamic(
   },
 );
 
-const DEFAULT_CODE = `def greet(name: str) -> str:
-    return f"Hello, {name}!"
+const DEFAULT_CODE = `# Demo: intentionally buggy code — click Run to see AI suggest a fix.
 
-print(greet("CodeStream"))
-for i in range(3):
-    print(f"  step {i + 1}")
+items = ["pen", "notebook", "eraser"]
+
+# BUG 1: IndexError — valid indices are 0–2, not 3
+print(f"First item: {items[0]}")
+print(f"Fourth item: {items[3]}")
+
+# BUG 2: TypeError — can't concatenate str and int
+count = len(items)
+print("You have " + count + " items")
+
+# BUG 3: NameError — typo in variable name
+total = sum([1, 2, 3])
+print(totl)
 `;
 
 type PanelState = "idle" | "waiting" | "done" | "failed";
