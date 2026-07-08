@@ -15,6 +15,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -78,17 +79,7 @@ public class GeminiSuggestionService {
     }
 
     private String callGemini(String prompt) {
-        Map<String, Object> body = Map.of(
-                "contents", List.of(
-                        Map.of("parts", List.of(
-                                Map.of("text", prompt)
-                        ))
-                ),
-                "generationConfig", Map.of(
-                        "temperature", 0.2,
-                        "maxOutputTokens", 2048
-                )
-        );
+        Map<String, Object> body = buildRequestBody(prompt);
 
         String model = properties.getModel();
         log.debug("Calling Gemini model: {}", model);
@@ -116,13 +107,20 @@ public class GeminiSuggestionService {
             JsonNode textNode = response.path("candidates").path(0)
                     .path("content").path("parts").path(0).path("text");
 
+            String finishReason = response.path("candidates").path(0)
+                    .path("finishReason").asText("");
+
             if (textNode.isMissingNode() || textNode.asText().isBlank()) {
-                String blockReason = response.path("candidates").path(0)
-                        .path("finishReason").asText("");
-                String message = blockReason.isBlank()
+                String message = finishReason.isBlank()
                         ? "Gemini returned no text. Try a different GEMINI_MODEL."
-                        : "Gemini blocked the response (" + blockReason + ").";
+                        : "Gemini blocked the response (" + finishReason + ").";
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, message);
+            }
+
+            if ("MAX_TOKENS".equals(finishReason)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "AI response was truncated. Please try again.");
             }
 
             return textNode.asText().trim();
@@ -149,6 +147,35 @@ public class GeminiSuggestionService {
         return errorBody.isBlank() ? "Unknown Gemini API error" : errorBody;
     }
 
+    private Map<String, Object> buildRequestBody(String prompt) {
+        Map<String, Object> responseSchema = Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "summary", Map.of("type", "string"),
+                        "explanation", Map.of("type", "string"),
+                        "correctedCode", Map.of("type", "string")
+                ),
+                "required", List.of("summary", "explanation", "correctedCode")
+        );
+
+        Map<String, Object> generationConfig = new LinkedHashMap<>();
+        generationConfig.put("temperature", 0.2);
+        generationConfig.put("maxOutputTokens", 8192);
+        generationConfig.put("responseMimeType", "application/json");
+        generationConfig.put("responseSchema", responseSchema);
+        // Prevent thinking tokens from consuming the output budget on 2.5 models.
+        generationConfig.put("thinkingConfig", Map.of("thinkingBudget", 0));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("contents", List.of(
+                Map.of("parts", List.of(
+                        Map.of("text", prompt)
+                ))
+        ));
+        body.put("generationConfig", generationConfig);
+        return body;
+    }
+
     private SuggestFixResponse parseModelResponse(String modelText) {
         String json = stripMarkdownFences(modelText);
 
@@ -158,28 +185,38 @@ public class GeminiSuggestionService {
             String explanation = node.path("explanation").asText("").trim();
             String correctedCode = node.path("correctedCode").asText("").trim();
 
-            if (!summary.isBlank() && !correctedCode.isBlank()) {
-                return new SuggestFixResponse(summary, explanation, correctedCode);
+            if (summary.isBlank() || correctedCode.isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "AI response was incomplete. Please try again.");
             }
-        } catch (Exception ignored) {
-            // fall through to plain-text fallback
-        }
 
-        return new SuggestFixResponse(
-                "Suggested fix",
-                modelText,
-                "");
+            return new SuggestFixResponse(summary, explanation, correctedCode);
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.warn("Failed to parse Gemini JSON response: {}", ex.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "AI response could not be parsed. Please try again.");
+        }
     }
 
     private String stripMarkdownFences(String text) {
         String trimmed = text.trim();
-        if (trimmed.startsWith("```")) {
-            int firstNewline = trimmed.indexOf('\n');
-            int lastFence = trimmed.lastIndexOf("```");
-            if (firstNewline >= 0 && lastFence > firstNewline) {
-                return trimmed.substring(firstNewline + 1, lastFence).trim();
-            }
+        if (!trimmed.startsWith("```")) {
+            return trimmed;
         }
-        return trimmed;
+
+        int firstNewline = trimmed.indexOf('\n');
+        if (firstNewline < 0) {
+            return trimmed;
+        }
+
+        String content = trimmed.substring(firstNewline + 1);
+        if (content.endsWith("```")) {
+            content = content.substring(0, content.length() - 3).trim();
+        }
+        return content;
     }
 }
