@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { SuggestFixResponse } from "@/lib/api";
 
 type AiState = "idle" | "loading" | "ready" | "failed";
@@ -17,6 +20,12 @@ export function AiSuggestionPanel({
   onApplyFix,
   onDismiss,
 }: AiSuggestionPanelProps) {
+  const [applied, setApplied] = useState(false);
+
+  useEffect(() => {
+    setApplied(false);
+  }, [suggestion?.correctedCode]);
+
   if (state === "idle") {
     return null;
   }
@@ -85,10 +94,18 @@ export function AiSuggestionPanel({
                   </p>
                   <button
                     type="button"
-                    onClick={() => onApplyFix(suggestion.correctedCode)}
-                    className="rounded-md bg-violet-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-violet-500"
+                    disabled={applied}
+                    onClick={() => {
+                      onApplyFix(suggestion.correctedCode);
+                      setApplied(true);
+                    }}
+                    className={`rounded-md px-3 py-1 text-xs font-semibold text-white transition ${
+                      applied
+                        ? "cursor-default bg-violet-900"
+                        : "bg-violet-600 hover:bg-violet-500"
+                    }`}
                   >
-                    Apply fix
+                    {applied ? "Applied!" : "Apply fix"}
                   </button>
                 </div>
                 <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-violet-500/20 bg-black/40 p-3 font-mono text-xs text-violet-50">
