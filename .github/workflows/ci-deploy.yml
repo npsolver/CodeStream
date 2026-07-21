@@ -1,0 +1,88 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test & build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run Java tests
+        run: mvn test
+
+      - name: Build Java services
+        run: mvn package -DskipTests
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          API_SERVICE_URL: http://localhost:8082
+        run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            REPO_DIR="/opt/codestream-src"
+            BRANCH="${{ github.ref_name }}"
+
+            sudo git -C "$REPO_DIR" fetch origin "$BRANCH"
+            sudo git -C "$REPO_DIR" checkout "$BRANCH"
+            sudo git -C "$REPO_DIR" pull origin "$BRANCH"
+
+            sudo REPO_DIR="$REPO_DIR" "$REPO_DIR/deploy/scripts/bootstrap-ec2.sh" --redeploy
+
+            for i in $(seq 1 30); do
+              if sudo systemctl is-active --quiet codestream-api && sudo systemctl is-active --quiet codestream-worker; then
+                echo "Services are active"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "Services did not become active within 60s" >&2
+            sudo systemctl status codestream-api codestream-worker --no-pager || true
+            sudo journalctl -u codestream-api -n 50 --no-pager || true
+            exit 1

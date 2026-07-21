@@ -176,11 +176,55 @@ The browser fetches `/api/execute`, `/api/result/{id}`, etc. on your Vercel doma
 ```bash
 cd /opt/codestream-src
 git pull
-sudo REPO_DIR=/opt/codestream-src ./deploy/scripts/bootstrap-ec2.sh
+sudo REPO_DIR=/opt/codestream-src ./deploy/scripts/bootstrap-ec2.sh --redeploy
+```
+
+Or restart manually after a full bootstrap:
+
+```bash
 sudo systemctl restart codestream-api codestream-worker
 ```
 
+**Automatic deploy:** pushes to `master`/`main` run [.github/workflows/ci-deploy.yml](../.github/workflows/ci-deploy.yml) (tests, then SSH redeploy). See [GitHub Actions setup](#github-actions-setup) below.
+
 Frontend updates deploy via Vercel (git push or Vercel dashboard).
+
+---
+
+## GitHub Actions setup
+
+CI/CD runs on every push/PR to `master` or `main`. Merging to the default branch deploys the backend to EC2 after tests pass.
+
+### 1. GitHub secrets
+
+In the repo: **Settings → Secrets and variables → Actions → New repository secret**
+
+| Secret | Value |
+|--------|-------|
+| `EC2_HOST` | EC2 public IP or hostname (e.g. Elastic IP) |
+| `EC2_USER` | SSH user (`ec2-user` on Amazon Linux, `ubuntu` on Ubuntu) |
+| `EC2_SSH_KEY` | Private key for SSH (PEM contents of the `.pem` file) |
+
+Optional: create a **production** environment under **Settings → Environments** to require manual approval before deploy.
+
+### 2. EC2: allow GitHub Actions SSH
+
+Add the **public** half of a deploy key (or your CI SSH key) to the EC2 instance `~/.ssh/authorized_keys` for `EC2_USER`. Restrict the security group so SSH (port 22) is allowed from GitHub Actions IPs, or use a self-hosted runner on the VPC.
+
+### 3. EC2: git pull access
+
+The deploy job runs `git pull` on the server. For a **private** repo, add a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) on the EC2 clone at `/opt/codestream-src`. Public repos work without extra setup.
+
+### 4. First-time bootstrap
+
+Run the full bootstrap once (without `--redeploy`) before relying on CI:
+
+```bash
+sudo REPO_DIR=/opt/codestream-src ./deploy/scripts/bootstrap-ec2.sh
+sudo systemctl enable --now codestream-api codestream-worker
+```
+
+Subsequent pushes use `--redeploy` (build JARs, restart services — no package reinstall).
 
 ---
 

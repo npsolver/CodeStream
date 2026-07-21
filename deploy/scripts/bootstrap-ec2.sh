@@ -103,6 +103,13 @@ install_env_and_systemd() {
   log "  systemctl enable --now codestream-api codestream-worker"
 }
 
+if [[ "${1:-}" == "--redeploy" ]]; then
+  build_app
+  systemctl restart codestream-api codestream-worker
+  log "Redeploy complete. Services restarted."
+  exit 0
+fi
+
 install_packages
 create_service_user
 build_app
