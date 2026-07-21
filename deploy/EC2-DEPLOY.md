@@ -266,3 +266,4 @@ No `EC2_HOST` / SSH secrets are needed. Keep SSH (port 22) restricted to your IP
 | SQS errors | IAM role; queue URLs and region |
 | 502 from nginx | `systemctl status codestream-api`; port 8082 listening on localhost |
 | Frontend hits wrong host | `API_SERVICE_URL` on Vercel; **redeploy** after changing (build-time rewrite) |
+| Runner: Libicu missing | Amazon Linux: `sudo dnf install -y libicu`. Ubuntu: `sudo apt-get install -y libicu70`. Re-run `install-github-runner.sh`. |

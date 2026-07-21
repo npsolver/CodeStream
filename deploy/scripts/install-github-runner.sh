@@ -26,6 +26,16 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+detect_os() {
+  if [[ -f /etc/os-release ]]; then
+    # shellcheck source=/dev/null
+    . /etc/os-release
+    echo "${ID:-unknown}"
+  else
+    echo "unknown"
+  fi
+}
+
 detect_arch() {
   case "$(uname -m)" in
     x86_64) echo "x64" ;;
@@ -37,7 +47,32 @@ detect_arch() {
   esac
 }
 
+install_runner_deps() {
+  local os
+  os="$(detect_os)"
+  log "Installing runner dependencies (OS: $os)"
+
+  case "$os" in
+    amzn)
+      if command -v dnf &>/dev/null; then
+        dnf install -y libicu
+      else
+        yum install -y libicu
+      fi
+      ;;
+    ubuntu|debian)
+      apt-get update
+      apt-get install -y libicu70 libicu-dev || apt-get install -y libicu66 libicu-dev
+      ;;
+    *)
+      echo "Install libicu manually, then re-run this script." >&2
+      exit 1
+      ;;
+  esac
+}
+
 ARCH="$(detect_arch)"
+install_runner_deps
 TARBALL="actions-runner-linux-${ARCH}-${RUNNER_VERSION}.tar.gz"
 DOWNLOAD_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${TARBALL}"
 
