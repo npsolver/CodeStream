@@ -52,37 +52,37 @@ jobs:
     name: Deploy to EC2
     needs: test
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, codestream]
     environment: production
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
-          command_timeout: 15m
-          script: |
-            set -euo pipefail
-            REPO_DIR="/opt/codestream-src"
-            BRANCH="${{ github.ref_name }}"
+      - name: Pull latest code
+        run: |
+          set -euo pipefail
+          REPO_DIR="/opt/codestream-src"
+          BRANCH="${{ github.ref_name }}"
 
-            sudo git -C "$REPO_DIR" fetch origin "$BRANCH"
-            sudo git -C "$REPO_DIR" checkout "$BRANCH"
-            sudo git -C "$REPO_DIR" pull origin "$BRANCH"
+          sudo git -C "$REPO_DIR" fetch origin "$BRANCH"
+          sudo git -C "$REPO_DIR" checkout "$BRANCH"
+          sudo git -C "$REPO_DIR" pull origin "$BRANCH"
 
-            sudo REPO_DIR="$REPO_DIR" "$REPO_DIR/deploy/scripts/bootstrap-ec2.sh" --redeploy
+      - name: Redeploy services
+        run: |
+          set -euo pipefail
+          REPO_DIR="/opt/codestream-src"
+          sudo REPO_DIR="$REPO_DIR" "$REPO_DIR/deploy/scripts/bootstrap-ec2.sh" --redeploy
 
-            for i in $(seq 1 30); do
-              if sudo systemctl is-active --quiet codestream-api && sudo systemctl is-active --quiet codestream-worker; then
-                echo "Services are active"
-                exit 0
-              fi
-              sleep 2
-            done
+      - name: Wait for services
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if sudo systemctl is-active --quiet codestream-api && sudo systemctl is-active --quiet codestream-worker; then
+              echo "Services are active"
+              exit 0
+            fi
+            sleep 2
+          done
 
-            echo "Services did not become active within 60s" >&2
-            sudo systemctl status codestream-api codestream-worker --no-pager || true
-            sudo journalctl -u codestream-api -n 50 --no-pager || true
-            exit 1
+          echo "Services did not become active within 60s" >&2
+          sudo systemctl status codestream-api codestream-worker --no-pager || true
+          sudo journalctl -u codestream-api -n 50 --no-pager || true
+          exit 1

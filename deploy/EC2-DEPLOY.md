@@ -185,7 +185,7 @@ Or restart manually after a full bootstrap:
 sudo systemctl restart codestream-api codestream-worker
 ```
 
-**Automatic deploy:** pushes to `master`/`main` run [.github/workflows/ci-deploy.yml](../.github/workflows/ci-deploy.yml) (tests, then SSH redeploy). See [GitHub Actions setup](#github-actions-setup) below.
+**Automatic deploy:** pushes to `master`/`main` run [.github/workflows/ci-deploy.yml](../.github/workflows/ci-deploy.yml) (tests on GitHub, then deploy via a self-hosted runner on EC2). See [GitHub Actions setup](#github-actions-setup) below.
 
 Frontend updates deploy via Vercel (git push or Vercel dashboard).
 
@@ -193,38 +193,52 @@ Frontend updates deploy via Vercel (git push or Vercel dashboard).
 
 ## GitHub Actions setup
 
-CI/CD runs on every push/PR to `master` or `main`. Merging to the default branch deploys the backend to EC2 after tests pass.
+CI/CD runs on every push/PR to `master` or `main`. Tests run on GitHub-hosted runners; merging to the default branch deploys the backend via a **self-hosted runner** on EC2 (no inbound SSH from GitHub required).
 
-### 1. GitHub secrets
+### 1. First-time bootstrap
 
-In the repo: **Settings → Secrets and variables → Actions → New repository secret**
-
-| Secret | Value |
-|--------|-------|
-| `EC2_HOST` | EC2 public IP or hostname (e.g. Elastic IP) |
-| `EC2_USER` | SSH user (`ec2-user` on Amazon Linux, `ubuntu` on Ubuntu) |
-| `EC2_SSH_KEY` | Private key for SSH (PEM contents of the `.pem` file) |
-
-Optional: create a **production** environment under **Settings → Environments** to require manual approval before deploy.
-
-### 2. EC2: allow GitHub Actions SSH
-
-Add the **public** half of a deploy key (or your CI SSH key) to the EC2 instance `~/.ssh/authorized_keys` for `EC2_USER`. Restrict the security group so SSH (port 22) is allowed from GitHub Actions IPs, or use a self-hosted runner on the VPC.
-
-### 3. EC2: git pull access
-
-The deploy job runs `git pull` on the server. For a **private** repo, add a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) on the EC2 clone at `/opt/codestream-src`. Public repos work without extra setup.
-
-### 4. First-time bootstrap
-
-Run the full bootstrap once (without `--redeploy`) before relying on CI:
+Run the full bootstrap once before relying on CI:
 
 ```bash
 sudo REPO_DIR=/opt/codestream-src ./deploy/scripts/bootstrap-ec2.sh
 sudo systemctl enable --now codestream-api codestream-worker
 ```
 
-Subsequent pushes use `--redeploy` (build JARs, restart services — no package reinstall).
+### 2. EC2: git pull access
+
+The deploy job runs `git pull` in `/opt/codestream-src`. For a **private** repo, add a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) so the server can pull from GitHub. Public repos work without extra setup.
+
+### 3. Install the self-hosted runner (one time)
+
+On EC2, get a registration token: **GitHub repo → Settings → Actions → Runners → New self-hosted runner → Linux**.
+
+```bash
+cd /opt/codestream-src
+git pull   # ensure install-github-runner.sh is present
+sudo GITHUB_REPO=YOUR_ORG/CodeStream RUNNER_TOKEN=PASTE_TOKEN_HERE \
+  ./deploy/scripts/install-github-runner.sh
+```
+
+The script creates a `github-runner` user, installs the runner under `/opt/actions-runner`, labels it `codestream`, and starts a systemd service. The deploy workflow uses `runs-on: [self-hosted, codestream]`.
+
+Confirm the runner shows **Idle** in **Settings → Actions → Runners**.
+
+Optional: create a **production** environment under **Settings → Environments** to require manual approval before deploy.
+
+### 4. What happens on push
+
+1. **Test job** (GitHub-hosted): `mvn test`, build JARs, build frontend.
+2. **Deploy job** (EC2 runner): `git pull` → `bootstrap-ec2.sh --redeploy` → wait for systemd services.
+
+No `EC2_HOST` / SSH secrets are needed. Keep SSH (port 22) restricted to your IP for manual admin only.
+
+### 5. Runner maintenance
+
+| Task | Command |
+|------|---------|
+| Runner status | `sudo systemctl status actions.runner.*` |
+| Runner logs | `journalctl -u actions.runner.* -f` |
+| Re-register runner | Re-run `install-github-runner.sh` with a fresh token |
 
 ---
 
@@ -238,6 +252,7 @@ Subsequent pushes use `--redeploy` (build JARs, restart services — no package 
 | [deploy/systemd/codestream-api.service](./systemd/codestream-api.service) | API systemd unit |
 | [deploy/systemd/codestream-worker.service](./systemd/codestream-worker.service) | Worker systemd unit |
 | [deploy/scripts/bootstrap-ec2.sh](./scripts/bootstrap-ec2.sh) | EC2 setup script |
+| [deploy/scripts/install-github-runner.sh](./scripts/install-github-runner.sh) | Self-hosted GitHub Actions runner |
 
 ---
 
